@@ -140,7 +140,31 @@ def handle_rpc(state: AgentState, method: str, params: dict[str, Any]) -> dict[s
             return {"ok": True, "value": state.cdp.js(expr)}
         return {"ok": True, "value": None}
     if method == "act":
-        return {"ok": True, "actions": params.get("actions") or []}
+        actions = params.get("actions") or []
+        done: list[dict[str, Any]] = []
+        for raw in actions:
+            typ = str(raw.get("type") or "")
+            if state.cdp is None:
+                done.append({"type": typ, "ok": True, "note": "no_cdp"})
+                continue
+            if typ == "click":
+                if raw.get("selector"):
+                    box = state.cdp.click_selector(str(raw["selector"]))
+                    done.append({"type": "click", "ok": True, **box})
+                elif "x" in raw and "y" in raw:
+                    state.cdp.click_xy(float(raw["x"]), float(raw["y"]))
+                    done.append({"type": "click", "ok": True, "x": raw["x"], "y": raw["y"]})
+                else:
+                    done.append({"type": "click", "ok": False, "error": "need selector or x,y"})
+            elif typ == "type":
+                state.cdp.type_text(str(raw.get("text") or ""), raw.get("selector"))
+                done.append({"type": "type", "ok": True})
+            elif typ == "press":
+                state.cdp.press(str(raw.get("key") or "Enter"))
+                done.append({"type": "press", "ok": True})
+            else:
+                done.append({"type": typ, "ok": False, "error": "unknown_action"})
+        return {"ok": True, "actions": done}
     if method == "shell":
         if not state.shell:
             return {"ok": False, "error": "shell_disabled"}

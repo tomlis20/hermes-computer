@@ -25,7 +25,7 @@ Do not use for: bybsie.com, GitHub, Gmail, Sheets, or any tool that already has 
 
 - Supervisor up. Env: `COMPUTER_SUPERVISOR_URL`, `COMPUTER_SUPERVISOR_TOKEN` in **both** gateway and WebUI compose.
 - Toolset visible: run `hermes computer doctor` and paste the FIX lines it prints (`platform_toolsets` merge). New chat after that.
-- `name` is required. Sharing a name shares that computer's logins.
+- `name` defaults to `computer`. A different name is a different login.
 
 ## How to Run
 
@@ -33,7 +33,7 @@ Use tools `computer_ensure`, `computer_rpc`, `computer_events`, `computer_status
 
 ## Procedure
 
-1. `computer_ensure` with an explicit `name` (e.g. `lab`). Completion: `{status: running, novnc_url}`.
+1. `computer_ensure` (name defaults to `computer`). Completion: `{status: running, novnc_url}`.
 2. `computer_rpc` `navigate` then `observe` (`a11y`). Completion: facts from the page, not invented.
 3. On `{paused: true}` open the signed `novnc_url` via SSH `-L` (loopback). Then `resume`.
 4. `computer_stop` when idle. `destroy` only to wipe cookies.

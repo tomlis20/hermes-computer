@@ -2,6 +2,8 @@
 set -euo pipefail
 export DISPLAY="${DISPLAY:-:1}"
 mkdir -p /home/agent/chrome /home/agent/events /tmp/.X11-unix || true
+# stale Chromium locks from a previous container
+rm -f /home/agent/chrome/SingletonLock /home/agent/chrome/SingletonCookie /home/agent/chrome/SingletonSocket
 
 Xvfb "$DISPLAY" -screen 0 1280x800x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 &
 sleep 0.4

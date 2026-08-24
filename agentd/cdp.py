@@ -174,6 +174,38 @@ class Cdp:
         h1 = self.js("document.querySelector('h1') ? document.querySelector('h1').innerText : ''") or ""
         return {"title": title, "h1": h1}
 
+    def click_xy(self, x: float, y: float) -> None:
+        for typ in ("mousePressed", "mouseReleased"):
+            self.call(
+                "Input.dispatchMouseEvent",
+                {"type": typ, "x": float(x), "y": float(y), "button": "left", "clickCount": 1},
+            )
+
+    def click_selector(self, selector: str) -> dict[str, Any]:
+        box = self.js(
+            """(() => {
+              const e = document.querySelector(%s);
+              if (!e) return null;
+              e.scrollIntoView({block: "center", inline: "center"});
+              const r = e.getBoundingClientRect();
+              return {x: r.x + r.width / 2, y: r.y + r.height / 2};
+            })()"""
+            % __import__("json").dumps(selector)
+        )
+        if not box:
+            raise CdpError(f"no_element:{selector}")
+        self.click_xy(box["x"], box["y"])
+        return box
+
+    def type_text(self, text: str, selector: str | None = None) -> None:
+        if selector:
+            self.click_selector(selector)
+        self.call("Input.insertText", {"text": text})
+
+    def press(self, key: str) -> None:
+        for typ in ("keyDown", "keyUp"):
+            self.call("Input.dispatchKeyEvent", {"type": typ, "key": key})
+
 
 def wait_cdp(endpoint: str = "http://127.0.0.1:9222", timeout: float = 30.0) -> Cdp:
     deadline = time.time() + timeout

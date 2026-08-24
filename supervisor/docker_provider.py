@@ -21,6 +21,11 @@ class DockerProvider:
         self.image = os.environ.get("COMPUTER_IMAGE", "ghcr.io/tomlis20/hermes-computer:v0.1.0")
         self.network = os.environ.get("COMPUTER_NETWORK", "hermes-computers")
         self.prefix = os.environ.get("COMPUTER_CONTAINER_PREFIX", "hermes-computer-")
+        # docker.sock bind mounts are host paths
+        self.host_data = os.environ.get(
+            "COMPUTER_HOST_DATA_DIR",
+            os.environ.get("COMPUTER_DATA_DIR", "/var/lib/hermes-computer"),
+        )
 
     def _cname(self, name: str) -> str:
         return f"{self.prefix}{name}"
@@ -34,7 +39,8 @@ class DockerProvider:
 
     def create(self, name: str, opts: ComputerOpts) -> Computer:
         token = secrets.token_hex(16)
-        home = self.store.home_dir(name)
+        self.store.home_dir(name)
+        host_home = f"{self.host_data.rstrip('/')}/homes/{name}"
         cname = self._cname(name)
         image = opts.image or self.image
         network = opts.network or self.network
@@ -61,7 +67,7 @@ class DockerProvider:
             "-e",
             f"AGENTD_SHELL={'1' if opts.shell else '0'}",
             "-v",
-            f"{home}:/home/agent/chrome-persist",
+            f"{host_home}:/home/agent/chrome",
             image,
         ]
         self._run(args)

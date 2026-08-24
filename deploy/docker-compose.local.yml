@@ -5,5 +5,6 @@ services:
     image: hermes-computer-supervisor:local
     environment:
       COMPUTER_IMAGE: hermes-computer:local
+      COMPUTER_HOST_DATA_DIR: /home/tomasz/Docker/hermes-agent/data/hermes-computers
     volumes:
       - /home/tomasz/Docker/hermes-agent/data/hermes-computers:/var/lib/hermes-computer

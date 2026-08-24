@@ -24,7 +24,7 @@ def _client_or_err() -> tuple[_client.SupervisorClient | None, str | None]:
 
 
 def _require_name(params: dict[str, Any]) -> str:
-    name = str(params.get("name") or "").strip()
+    name = str(params.get("name") or "computer").strip() or "computer"
     return _client.validate_name(name)
 
 
@@ -107,11 +107,11 @@ def register(ctx: Any) -> None:
     tools = [
         (
             "computer_ensure",
-            "Create or start a named computer. name is required. Returns signed short-lived novnc_url.",
+            "Create or start the headed computer. Defaults to name=computer.",
             {
-                "name": {"type": "string", "description": "Computer slot name (required)."},
+                "name": {"type": "string", "description": "Slot name. Default: computer."},
             },
-            ["name"],
+            [],
             _ensure,
         ),
         (
