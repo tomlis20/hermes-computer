@@ -19,6 +19,7 @@ class FakeProvider:
         self._events: dict[str, list[dict[str, Any]]] = {}
         self._paused: set[str] = set()
         self._pages: dict[str, dict[str, Any]] = {}
+        self._novnc_url = ""
 
     def create(self, name: str, opts: ComputerOpts) -> Computer:
         self.calls.append(("create", name))
@@ -65,7 +66,7 @@ class FakeProvider:
         return Health(True, rec.sandbox or "seccomp", "ok")
 
     def novnc_upstream(self, name: str) -> str:
-        return f"http://hermes-computer-{name}:6080/"
+        return self._novnc_url or f"http://127.0.0.1:9/{name}"
 
     def events(self, name: str, after: str = "") -> dict[str, Any]:
         items = self._events.get(name, [])

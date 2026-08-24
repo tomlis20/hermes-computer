@@ -128,16 +128,32 @@ def test_supervisor_http(tmp_path: Path):
         # unsigned takeover
         import urllib.error
         import urllib.request
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        from urllib.parse import urlparse
+
+        class FakeVnc(BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                return
+
+            def do_GET(self):
+                body = b"<!doctype html><title>noVNC</title>novnc-upstream-ok"
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        fake = ThreadingHTTPServer(("127.0.0.1", 0), FakeVnc)
+        threading.Thread(target=fake.serve_forever, daemon=True).start()
+        provider._novnc_url = f"http://127.0.0.1:{fake.server_address[1]}/"
 
         with pytest.raises(urllib.error.HTTPError) as ei:
             urllib.request.urlopen(f"http://127.0.0.1:{port}/computers/lab/novnc/not-a-sig/", timeout=3)
         assert ei.value.code == 403
-        # signed works
-        from urllib.parse import urlparse
-
         path = urlparse(ens["novnc_url"]).path
-        urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=3)
-        # deny cidr: simulate by constructing handler is unit-tested via _in_nets separately
+        raw = urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=3).read()
+        assert b"novnc-upstream-ok" in raw
+        fake.shutdown()
     finally:
         httpd.shutdown()
 

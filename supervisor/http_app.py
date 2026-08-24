@@ -17,6 +17,7 @@ if _ROOT not in sys.path:
     sys.path.insert(0, _ROOT)
 
 from client import mint_takeover, validate_name, verify_request, verify_takeover  # noqa: E402
+import novnc_proxy  # noqa: E402
 
 
 def _json(handler: BaseHTTPRequestHandler, code: int, payload: dict[str, Any]) -> None:
@@ -78,7 +79,7 @@ def make_handler(ctx: dict[str, Any]):
             if path == "/health":
                 return _json(self, 200, {"ok": True, "sandbox_default": ctx.get("sandbox_default", "unknown")})
             if path.startswith("/computers/") and "/novnc/" in path:
-                return self._novnc(path)
+                return self._novnc()
             if path == "/computers":
                 if not self._auth("GET", path, b""):
                     return _json(self, 401, {"ok": False, "error": "unauthorized"})
@@ -149,21 +150,23 @@ def make_handler(ctx: dict[str, Any]):
             except Exception as exc:
                 return {"ok": False, "error": f"ensure_failed:{exc}"}
             token, exp = mint_takeover(ctx["secret"], name)
-            base = ctx.get("public_base", "http://127.0.0.1:9376")
+            base = ctx.get("public_base", "http://127.0.0.1:9376").rstrip("/")
+            q = novnc_proxy.vnc_query(name, token)
             return {
                 "ok": True,
                 "name": rec.name,
                 "status": rec.status,
                 "age_s": int(time.time() - rec.created_at),
-                "novnc_url": f"{base}/computers/{name}/novnc/{token}/",
+                "novnc_url": f"{base}/computers/{name}/novnc/{token}/vnc.html?{q}",
                 "novnc_expires": exp,
                 "sandbox": rec.sandbox,
             }
 
-        def _novnc(self, path: str) -> None:
-            # /computers/{name}/novnc/{sig}/...
-            parts = path.strip("/").split("/")
-            if len(parts) < 4:
+        def _novnc(self) -> None:
+            parsed = urlparse(self.path)
+            parts = parsed.path.strip("/").split("/")
+            # computers / {name} / novnc / {sig} / ...
+            if len(parts) < 4 or parts[0] != "computers" or parts[2] != "novnc":
                 return _json(self, 403, {"ok": False, "error": "forbidden"})
             name, sig = parts[1], parts[3]
             if not verify_takeover(ctx["secret"], name, sig):
@@ -171,15 +174,22 @@ def make_handler(ctx: dict[str, Any]):
             rec = ctx["store"].get(name)
             if rec is None or rec.status != "running":
                 return _json(self, 404, {"ok": False, "error": "missing"})
-            body = (
-                "<!doctype html><title>takeover</title>"
-                f"<p>signed takeover for {name}</p>"
-            ).encode("utf-8")
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+            dest = novnc_proxy.rest_path(parts, parsed.query)
+            if dest in {"/", "/?"} or dest.rstrip("?") == "/":
+                loc = f"{novnc_proxy.prefix(name, sig)}/vnc.html?{novnc_proxy.vnc_query(name, sig)}"
+                self.send_response(302)
+                self.send_header("Location", loc)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            try:
+                upstream = ctx["provider"].novnc_upstream(name)
+            except Exception:
+                return _json(self, 502, {"ok": False, "error": "no_upstream"})
+            host, port, _ = novnc_proxy.parse_upstream(upstream)
+            if novnc_proxy.is_websocket(self):
+                return novnc_proxy.proxy_ws(self, host, port, dest)
+            return novnc_proxy.proxy_http(self, upstream, dest)
 
     return Handler
 
