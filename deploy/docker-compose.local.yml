@@ -1,0 +1,9 @@
+# Homelab local images (GHCR not published yet).
+# Use with: docker compose -f docker-compose.yml -f docker-compose.local.yml
+services:
+  supervisor:
+    image: hermes-computer-supervisor:local
+    environment:
+      COMPUTER_IMAGE: hermes-computer:local
+    volumes:
+      - /home/tomasz/Docker/hermes-agent/data/hermes-computers:/var/lib/hermes-computer

@@ -121,7 +121,10 @@ def make_handler(ctx: dict[str, Any]):
                 rec = ctx["store"].get(name)
                 if rec is None:
                     return _json(self, 404, {"ok": False, "error": "missing"})
-                result = ctx["provider"].rpc(name, req)
+                try:
+                    result = ctx["provider"].rpc(name, req)
+                except Exception as exc:
+                    return _json(self, 200, {"ok": False, "error": f"rpc_failed:{exc}"})
                 ctx["store"].touch_rpc(name)
                 return _json(self, 200, result)
             if action == "stop":
@@ -137,11 +140,14 @@ def make_handler(ctx: dict[str, Any]):
             return _json(self, 404, {"ok": False, "error": "not_found"})
 
         def _ensure(self, name: str) -> dict[str, Any]:
-            rec = ctx["store"].get(name)
-            if rec is None or rec.status == "destroyed":
-                rec = ctx["provider"].create(name, ctx["default_opts"])
-            if rec.status != "running":
-                rec = ctx["provider"].start(name)
+            try:
+                rec = ctx["store"].get(name)
+                if rec is None or rec.status == "destroyed":
+                    rec = ctx["provider"].create(name, ctx["default_opts"])
+                if rec.status != "running":
+                    rec = ctx["provider"].start(name)
+            except Exception as exc:
+                return {"ok": False, "error": f"ensure_failed:{exc}"}
             token, exp = mint_takeover(ctx["secret"], name)
             base = ctx.get("public_base", "http://127.0.0.1:9376")
             return {

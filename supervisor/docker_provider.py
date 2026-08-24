@@ -26,7 +26,11 @@ class DockerProvider:
         return f"{self.prefix}{name}"
 
     def _run(self, args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(args, check=check, capture_output=True, text=True)
+        proc = subprocess.run(args, check=False, capture_output=True, text=True)
+        if check and proc.returncode != 0:
+            err = (proc.stderr or proc.stdout or "").strip()
+            raise RuntimeError(f"docker_failed:{proc.returncode}:{err[:800]}")
+        return proc
 
     def create(self, name: str, opts: ComputerOpts) -> Computer:
         token = secrets.token_hex(16)
@@ -34,6 +38,7 @@ class DockerProvider:
         cname = self._cname(name)
         image = opts.image or self.image
         network = opts.network or self.network
+        self._run(["docker", "rm", "-f", cname], check=False)
         args = [
             "docker",
             "run",

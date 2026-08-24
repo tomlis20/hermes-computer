@@ -193,7 +193,10 @@ def _cli_setup(parser: Any) -> None:
 
 
 def _cli_handler(args: Any) -> None:
-    from doctor import run_doctor
+    try:
+        from .doctor import run_doctor
+    except ImportError:
+        from doctor import run_doctor
 
     cmd = getattr(args, "computer_cmd", None)
     if cmd == "doctor" or cmd is None:

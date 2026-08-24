@@ -83,9 +83,12 @@ class Store:
     def put(self, rec: Computer) -> Computer:
         existing = self.get(rec.name)
         if existing and existing.status != rec.status:
-            allowed = TRANSITIONS.get(existing.status, set())
-            if rec.status != "destroyed" and rec.status not in allowed and rec.status != existing.status:
-                raise ValueError(f"illegal transition {existing.status}->{rec.status}")
+            if existing.status == "destroyed":
+                pass
+            else:
+                allowed = TRANSITIONS.get(existing.status, set())
+                if rec.status != "destroyed" and rec.status not in allowed and rec.status != existing.status:
+                    raise ValueError(f"illegal transition {existing.status}->{rec.status}")
         self._write(rec)
         return rec
 

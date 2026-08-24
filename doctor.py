@@ -9,7 +9,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from client import env_client
+try:
+    from .client import env_client
+except ImportError:
+    from client import env_client
 
 
 def _which_process() -> str:

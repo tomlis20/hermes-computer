@@ -28,7 +28,7 @@ class AgentState:
         self.page: dict[str, Any] = {}
         self.events: list[dict[str, Any]] = []
         self.sandbox = os.environ.get("AGENTD_SANDBOX", "unknown")
-        self.cdp = None  # optional real CDP
+        self.cdp: Any = None
 
     def emit(self, typ: str, **kw: Any) -> dict[str, Any]:
         ev = {"ts": f"{time.time():.6f}", "type": typ, **kw}
@@ -93,7 +93,10 @@ def make_handler(state: AgentState):
                 return self._json(200, {"ok": True, "paused": False})
             if state.paused and method in {"act", "navigate"}:
                 return self._json(200, {"ok": False, "paused": True, "reason": state.pause_reason})
-            return self._json(200, handle_rpc(state, method, params))
+            try:
+                return self._json(200, handle_rpc(state, method, params))
+            except Exception as exc:
+                return self._json(200, {"ok": False, "error": f"rpc_failed:{exc}"})
 
     return Handler
 
@@ -153,10 +156,17 @@ def main() -> None:
     state = AgentState()
     if not state.token:
         raise SystemExit("AGENTD_TOKEN required")
+    try:
+        from cdp import wait_cdp
+
+        state.cdp = wait_cdp(timeout=20.0)
+        print("cdp connected", flush=True)
+    except Exception as exc:
+        print(f"cdp unavailable: {exc}", flush=True)
     host = os.environ.get("AGENTD_BIND", "0.0.0.0")
     port = int(os.environ.get("AGENTD_PORT", "9377"))
     httpd = ThreadingHTTPServer((host, port), make_handler(state))
-    print(f"agentd on {host}:{port}", flush=True)
+    print(f"agentd on {host}:{port} sandbox={state.sandbox}", flush=True)
     httpd.serve_forever()
 
 
