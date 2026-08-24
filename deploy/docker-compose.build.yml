@@ -1,0 +1,38 @@
+# Local build of supervisor + computer images (developers).
+services:
+  supervisor:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.supervisor
+    image: ghcr.io/tomlis20/hermes-computer-supervisor:v0.1.0
+    container_name: hermes-computer-supervisor
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9376:9376"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${COMPUTER_DATA_DIR:-/opt/data/hermes-computers}:/var/lib/hermes-computer
+    environment:
+      COMPUTER_SUPERVISOR_TOKEN: ${COMPUTER_SUPERVISOR_TOKEN}
+      COMPUTER_NETWORK: hermes-computers
+      COMPUTER_DATA_DIR: /var/lib/hermes-computer
+      COMPUTER_IMAGE: ghcr.io/tomlis20/hermes-computer:v0.1.0
+      COMPUTER_BIND_HOST: "0.0.0.0"
+      COMPUTER_PUBLIC_BASE: http://127.0.0.1:9376
+    sysctls:
+      - net.ipv4.ip_forward=0
+      - net.ipv6.conf.all.forwarding=0
+    networks: [tailscale_net, hermes-computers]
+
+  computer-image:
+    build:
+      context: ..
+      dockerfile: image/Dockerfile
+    image: ghcr.io/tomlis20/hermes-computer:v0.1.0
+    profiles: ["build"]
+
+networks:
+  tailscale_net:
+    external: true
+  hermes-computers:
+    name: hermes-computers

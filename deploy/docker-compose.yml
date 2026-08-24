@@ -1,0 +1,37 @@
+# Hermes Computer supervisor — pull-only runtime
+#
+# Agent path: Docker DNS http://hermes-computer-supervisor:9376
+# Takeover:   127.0.0.1:9376 + signed URL from computer_ensure + SSH -L
+#
+# sysctl ip_forward=0: dual-home must not route computers onto Hermes' net.
+
+services:
+  supervisor:
+    image: ghcr.io/tomlis20/hermes-computer-supervisor:v0.1.0
+    container_name: hermes-computer-supervisor
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9376:9376"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${COMPUTER_DATA_DIR:-/opt/data/hermes-computers}:/var/lib/hermes-computer
+    environment:
+      COMPUTER_SUPERVISOR_TOKEN: ${COMPUTER_SUPERVISOR_TOKEN}
+      COMPUTER_NETWORK: hermes-computers
+      COMPUTER_DATA_DIR: /var/lib/hermes-computer
+      COMPUTER_IMAGE: ${COMPUTER_IMAGE:-ghcr.io/tomlis20/hermes-computer:v0.1.0}
+      COMPUTER_BIND_HOST: "0.0.0.0"
+      COMPUTER_PUBLIC_BASE: http://127.0.0.1:9376
+      COMPUTER_NETWORK_CIDR: ${COMPUTER_NETWORK_CIDR:-}
+    sysctls:
+      - net.ipv4.ip_forward=0
+      - net.ipv6.conf.all.forwarding=0
+    networks:
+      - tailscale_net
+      - hermes-computers
+
+networks:
+  tailscale_net:
+    external: true
+  hermes-computers:
+    name: hermes-computers

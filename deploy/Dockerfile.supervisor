@@ -1,0 +1,7 @@
+FROM python:3.13-slim
+WORKDIR /app
+COPY client.py /app/client.py
+COPY supervisor/ /app/supervisor/
+ENV PYTHONUNBUFFERED=1
+ENV COMPUTER_BIND_HOST=0.0.0.0
+CMD ["python", "-u", "supervisor/main.py"]

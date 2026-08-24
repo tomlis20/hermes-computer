@@ -1,0 +1,36 @@
+# Merge into a business Hermes compose. Hermes gets NO docker.sock.
+# Add a loopback publish if humans need takeover on that host.
+
+services:
+  hermes-computer-supervisor:
+    image: ghcr.io/tomlis20/hermes-computer-supervisor:v0.1.0
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:9376:9376"
+    environment:
+      COMPUTER_SUPERVISOR_TOKEN: ${COMPUTER_SUPERVISOR_TOKEN}
+      COMPUTER_NETWORK: hermes-computers
+      COMPUTER_DATA_DIR: /var/lib/hermes-computer
+      COMPUTER_IMAGE: ghcr.io/tomlis20/hermes-computer:v0.1.0
+      COMPUTER_BIND_HOST: "0.0.0.0"
+      COMPUTER_PUBLIC_BASE: http://127.0.0.1:9376
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - hermes-computers-data:/var/lib/hermes-computer
+    sysctls:
+      - net.ipv4.ip_forward=0
+      - net.ipv6.conf.all.forwarding=0
+    networks: [hermes-net, hermes-computers]
+
+  hermes:
+    environment:
+      COMPUTER_SUPERVISOR_URL: http://hermes-computer-supervisor:9376
+      COMPUTER_SUPERVISOR_TOKEN: ${COMPUTER_SUPERVISOR_TOKEN}
+    networks: [hermes-net]
+
+volumes:
+  hermes-computers-data: {}
+
+networks:
+  hermes-computers:
+    name: hermes-computers
