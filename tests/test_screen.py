@@ -42,6 +42,9 @@ class FakeSock:
     def sendall(self, raw: bytes) -> None:
         self.sent += raw
 
+    def settimeout(self, _t: float) -> None:  # production _WS raises the read timeout
+        pass
+
 
 def _frame(opcode: int, payload: bytes, fin: bool = True) -> bytes:
     b1 = (0x80 if fin else 0x00) | opcode
@@ -147,11 +150,40 @@ def test_rpc_persists_screenshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 def test_prune_keeps_50_newest(tmp_path: Path):
     dest = tmp_path / "screenshots"
     dest.mkdir()
-    names = [f"computer-qa-20260101T{i:04d}0Z.jpg" for i in range(60)]
+    names = [f"computer-qa-20260101T{i:06d}Z.jpg" for i in range(60)]
     for n in names:
         (dest / n).write_bytes(b"x")
-    (dest / "computer-other-20260101T00000Z.jpg").write_bytes(b"x")
+    (dest / "computer-other-20260101T000000Z.jpg").write_bytes(b"x")
     PLUGIN._prune_screenshots(dest, "qa")
     left = sorted(p.name for p in dest.glob("computer-qa-*.jpg"))
     assert left == sorted(names)[10:]
-    assert (dest / "computer-other-20260101T00000Z.jpg").is_file()
+    assert (dest / "computer-other-20260101T000000Z.jpg").is_file()
+
+
+def test_prune_ignores_sibling_slot(tmp_path: Path):
+    # FIX 1: prune("qa") anchors to computer-qa-<stamp> and must never touch a
+    # sibling slot whose name starts with "qa-" (e.g. qa-x), nor delete the
+    # just-written qa file that a loose glob would sweep in.
+    dest = tmp_path / "screenshots"
+    dest.mkdir()
+    siblings = [f"computer-qa-x-20260101T{i:06d}Z.jpg" for i in range(50)]
+    for n in siblings:
+        (dest / n).write_bytes(b"x")
+    fresh = dest / "computer-qa-20260101T120000Z.jpg"
+    fresh.write_bytes(b"x")
+    PLUGIN._prune_screenshots(dest, "qa")
+    assert fresh.is_file()  # the just-written qa file survives
+    assert all((dest / n).is_file() for n in siblings)  # qa-x slot untouched
+
+    # And genuine qa files still prune to the 50 newest, sibling slot untouched.
+    other = tmp_path / "genuine"
+    other.mkdir()
+    for n in siblings:
+        (other / n).write_bytes(b"x")
+    genuine = [f"computer-qa-20260101T{i:06d}Z.jpg" for i in range(60)]
+    for n in genuine:
+        (other / n).write_bytes(b"x")
+    PLUGIN._prune_screenshots(other, "qa")
+    left = sorted(p.name for p in other.glob("computer-qa-2*.jpg"))
+    assert left == sorted(genuine)[10:]
+    assert all((other / n).is_file() for n in siblings)

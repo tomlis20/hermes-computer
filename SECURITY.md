@@ -10,12 +10,20 @@
 
 ## Takeover exposure
 
-A valid signed `novnc_url` grants desktop control to anyone who can reach the
-9376 listener until the token expires (~10 min). Every other supervisor route
-stays HMAC-authenticated regardless of where 9376 is published. If
-`COMPUTER_PUBLIC_BASE` points beyond loopback (NerdCow: tailnet-only), a chat
-transcript containing the link is effectively a takeover credential while it
-lives — per-person slot names remain the wall for logged-in sessions.
+The signed `novnc_url` is a stateless HMAC bearer token over `novnc\n{name}\n{exp}`.
+Nothing revokes it: resume, stop, and destroy do not invalidate it, so it grants
+desktop control for its full ~10-min TTL even after the human finishes. Treat the
+link like a short-lived password.
+
+With `COMPUTER_PUBLIC_BASE` on the tailnet (NerdCow), port 9376 is a tailnet-wide
+VNC ingress reachable by every tailnet node — a deliberate new path that widens the
+"Computers are only on `hermes-computers`" isolation below. Every other supervisor
+route stays HMAC-authenticated regardless of where 9376 is published.
+
+Slot discipline (ensure/rpc, HMAC-gated) only governs which desktop a bot opens, not
+who reaches a leaked link: anyone who sees the URL controls that desktop until it
+expires. The real mitigations are the HMAC signature, the ~10-min TTL, and
+tailnet-only ingress — but a leaked link inside that window is a live credential.
 
 ## Network
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -73,7 +74,8 @@ def _screenshots_dir() -> Path:
 def _persist_screenshot(resp: dict[str, Any], name: str) -> dict[str, Any]:
     b64 = resp.pop("screenshot_b64")
     fmt = str(resp.get("screenshot_format") or "jpeg")
-    ext = "jpg" if fmt == "jpeg" else fmt
+    # screenshot_format crosses the supervisor->agentd sandbox boundary; whitelist it.
+    ext = "jpg" if fmt in {"jpeg", "jpg"} else fmt if fmt in {"png", "webp"} else "jpg"
     try:
         raw = base64.b64decode(b64)
     except (TypeError, ValueError):
@@ -95,7 +97,14 @@ def _persist_screenshot(resp: dict[str, Any], name: str) -> dict[str, Any]:
 
 
 def _prune_screenshots(dest: Path, name: str, keep: int = 50) -> None:
-    files = sorted(dest.glob(f"computer-{name}-*.jpg"), key=lambda p: p.name, reverse=True)
+    # Anchor to the exact timestamped name we write; a loose glob would sweep in
+    # sibling slots (qa vs qa-x) and break the by-time ordering.
+    pat = rf"computer-{re.escape(name)}-\d{{8}}T\d{{6}}Z\.\w+"
+    files = sorted(
+        (p for p in dest.iterdir() if re.fullmatch(pat, p.name)),
+        key=lambda p: p.name,
+        reverse=True,
+    )
     for stale in files[keep:]:
         try:
             stale.unlink()
