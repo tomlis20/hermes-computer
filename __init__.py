@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import json
+import os
+import time
 from pathlib import Path
 from typing import Any
 
@@ -57,7 +60,47 @@ def _rpc(params: dict[str, Any], **kwargs: Any) -> str:
         extra = {}
     if not isinstance(extra, dict):
         return _dump({"ok": False, "error": "params must be an object"})
-    return _dump(c.rpc(name, method, extra))
+    resp = c.rpc(name, method, extra)
+    if isinstance(resp, dict) and "screenshot_b64" in resp:
+        resp = _persist_screenshot(resp, name)
+    return _dump(resp)
+
+
+def _screenshots_dir() -> Path:
+    return Path(os.environ.get("HERMES_HOME") or "~/.hermes").expanduser() / "screenshots"
+
+
+def _persist_screenshot(resp: dict[str, Any], name: str) -> dict[str, Any]:
+    b64 = resp.pop("screenshot_b64")
+    fmt = str(resp.get("screenshot_format") or "jpeg")
+    ext = "jpg" if fmt == "jpeg" else fmt
+    try:
+        raw = base64.b64decode(b64)
+    except (TypeError, ValueError):
+        resp["screenshot_error"] = "invalid_base64"
+        return resp
+    stamp = time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+    dest = _screenshots_dir()
+    try:
+        dest.mkdir(parents=True, exist_ok=True)
+        path = dest / f"computer-{name}-{stamp}.{ext}"
+        path.write_bytes(raw)
+    except OSError as exc:
+        resp["screenshot_error"] = f"write_failed:{exc}"
+        return resp
+    resp["screenshot_path"] = str(path)
+    resp["media_hint"] = f"include MEDIA:{path} in your reply to show this screenshot in chat"
+    _prune_screenshots(dest, name)
+    return resp
+
+
+def _prune_screenshots(dest: Path, name: str, keep: int = 50) -> None:
+    files = sorted(dest.glob(f"computer-{name}-*.jpg"), key=lambda p: p.name, reverse=True)
+    for stale in files[keep:]:
+        try:
+            stale.unlink()
+        except OSError:
+            pass
 
 
 def _events(params: dict[str, Any], **kwargs: Any) -> str:

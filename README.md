@@ -26,7 +26,7 @@ Supervisor + socket is **root-equivalent** on the host. Pin a SHA you trust.
 5. `hermes plugins enable hermes-computer` if needed. **New chat.**
 6. `computer_ensure` → navigate `https://example.com` → observe `a11y` → Example Domain.
 
-Watch: `ssh -N -L 9376:127.0.0.1:9376` to that Docker host, then open the signed `novnc_url` from `ensure`. Re-ensure after 10 minutes.
+Watch: open the signed `novnc_url` from `ensure` directly when `COMPUTER_PUBLIC_BASE` points at a host you can reach (NerdCow: `http://hermes:9376` on the tailnet). If the base stays loopback, fall back to `ssh -N -L 9376:127.0.0.1:9376` to that Docker host. Links expire after ~10 minutes; re-ensure mints a fresh one.
 
 Hermes-in-Docker elsewhere: same overlay, swap `hermes-net` for their existing network. Computers stay only on `hermes-computers`.
 
@@ -34,7 +34,7 @@ Hermes-in-Docker elsewhere: same overlay, swap `hermes-net` for their existing n
 
 `computer_ensure`, `computer_rpc`, `computer_events`, `computer_status`, `computer_stop`.
 
-Parent LLM drives every click. Default observe is the accessibility tree. If a site already has an API/MCP/CLI, do not open a computer.
+Parent LLM drives every click. Default observe is the accessibility tree. Observe mode `screenshot` returns a gateway-local `screenshot_path` for `MEDIA:` chat embedding. If a site already has an API/MCP/CLI, do not open a computer.
 
 ## Dev
 
