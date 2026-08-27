@@ -1,0 +1,24 @@
+# NerdCow VPS overrides: this box's shared network is hermes_default (the
+# tailscale-netns network all Hermes instances resolve DNS through), data
+# lives under /opt/hermes, and the supervisor gets a memory ceiling like
+# every other stack on this host.
+services:
+  supervisor:
+    mem_limit: 512m
+    pids_limit: 256
+    # Same path inside and out: the supervisor passes its COMPUTER_DATA_DIR to
+    # the host docker daemon as bind SOURCES for the desktops it spawns. If the
+    # in-container path differs from the host path, the daemon silently creates
+    # a root-owned twin on the host and Chromium dies on SingletonLock (13).
+    environment:
+      COMPUTER_DATA_DIR: /opt/hermes/data/hermes-computers
+      # Signed view/takeover URLs are minted from this base. `hermes` is the
+      # tailnet MagicDNS node; hermes-computer-takeover (socat, defined in
+      # /opt/hermes/compose.yaml) carries 9376 from the tailscale netns here.
+      COMPUTER_PUBLIC_BASE: http://hermes:9376
+    volumes:
+      - /opt/hermes/data/hermes-computers:/opt/hermes/data/hermes-computers
+networks:
+  tailscale_net:
+    external: true
+    name: hermes_default

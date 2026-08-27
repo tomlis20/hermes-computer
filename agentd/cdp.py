@@ -56,6 +56,9 @@ class _WS:
         expected = base64.b64encode(hashlib.sha1(key.encode() + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest()).decode()
         if expected.encode() not in header:
             raise CdpError("ws accept mismatch")
+        # Raise the read timeout past the connect timeout so a slow 30s
+        # Page.captureScreenshot isn't cut short by the 15s connect timeout.
+        sock.settimeout(30.0)
         self.sock = sock
         self._buf = rest
 
@@ -77,14 +80,26 @@ class _WS:
         self.sock.sendall(header + payload)
 
     def recv_text(self) -> str:
+        parts: list[bytes] = []
         while True:
-            opcode, data = self._read_frame()
-            if opcode == 0x1:
-                return data.decode("utf-8")
+            fin, opcode, data = self._read_frame()
             if opcode == 0x8:
                 raise CdpError("ws closed")
-            if opcode == 0x9:
+            if opcode == 0x9:  # control frames may interleave fragments
                 self._pong(data)
+                continue
+            if opcode == 0xA:
+                continue
+            if opcode == 0x1:
+                parts = [data]
+            elif opcode == 0x0:
+                if not parts:
+                    raise CdpError("ws continuation without start")
+                parts.append(data)
+            else:
+                raise CdpError(f"ws unexpected opcode {opcode}")
+            if fin:
+                return b"".join(parts).decode("utf-8")
 
     def _read_exact(self, n: int) -> bytes:
         while len(self._buf) < n:
@@ -95,8 +110,9 @@ class _WS:
         out, self._buf = self._buf[:n], self._buf[n:]
         return out
 
-    def _read_frame(self) -> tuple[int, bytes]:
+    def _read_frame(self) -> tuple[bool, int, bytes]:
         b1, b2 = self._read_exact(2)
+        fin = bool(b1 & 0x80)
         opcode = b1 & 0x0F
         masked = b2 & 0x80
         n = b2 & 0x7F
@@ -108,7 +124,7 @@ class _WS:
         data = self._read_exact(n)
         if masked:
             data = bytes(b ^ mask[i % 4] for i, b in enumerate(data))
-        return opcode, data
+        return fin, opcode, data
 
     def _pong(self, data: bytes) -> None:
         header = bytearray([0x8A, 0x80 | len(data)])
@@ -168,6 +184,16 @@ class Cdp:
     def js(self, expression: str) -> Any:
         result = self.call("Runtime.evaluate", {"expression": expression, "returnByValue": True})
         return (result or {}).get("result", {}).get("value")
+
+    def screenshot(self, fmt: str = "jpeg", quality: int = 80) -> str:
+        params: dict[str, Any] = {"format": fmt}
+        if fmt in {"jpeg", "webp"}:  # quality invalid for png
+            params["quality"] = quality
+        result = self.call("Page.captureScreenshot", params, timeout=30.0)
+        data = (result or {}).get("data")
+        if not data:
+            raise CdpError("no screenshot data")
+        return str(data)
 
     def a11y(self) -> dict[str, Any]:
         title = self.js("document.title") or ""

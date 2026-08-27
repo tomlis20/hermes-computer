@@ -132,7 +132,14 @@ def handle_rpc(state: AgentState, method: str, params: dict[str, Any]) -> dict[s
             else:
                 out["a11y"] = {"h1": state.page.get("h1", ""), "title": state.page.get("title", "")}
         if mode in {"screenshot", "both"}:
-            out["screenshot_path"] = "/home/agent/events/last.png"
+            if state.cdp is not None:
+                try:
+                    out["screenshot_b64"] = state.cdp.screenshot()
+                    out["screenshot_format"] = "jpeg"
+                except Exception as exc:
+                    out["screenshot_error"] = f"capture_failed:{exc}"
+            else:
+                out["screenshot_path"] = "/home/agent/events/last.png"
         return out
     if method == "js":
         expr = str(params.get("expression") or "")
