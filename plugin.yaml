@@ -1,5 +1,5 @@
 name: hermes-computer
-version: "0.1.0"
+version: "0.1.2"
 description: Own a headed computer and talk to it over a signed RPC.
 requires_env:
   - COMPUTER_SUPERVISOR_URL

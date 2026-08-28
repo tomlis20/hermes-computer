@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
 import threading
 import time
@@ -76,6 +77,53 @@ def test_store_transitions(tmp_path: Path):
     assert st.get("lab").status == "destroyed"
     pub = st.get("lab").to_public()
     assert "agentd_token" not in pub
+
+
+def test_home_dir_chowns_to_desktop_uid(tmp_path: Path, monkeypatch):
+    st = Store(tmp_path)
+    calls: list[tuple[str, int, int]] = []
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(os, "chown", lambda path, uid, gid: calls.append((str(path), uid, gid)))
+    monkeypatch.delenv("COMPUTER_DESKTOP_UID", raising=False)
+    monkeypatch.delenv("COMPUTER_DESKTOP_GID", raising=False)
+
+    home = st.home_dir("lab")
+    assert home == tmp_path / "homes" / "lab"
+    assert home.is_dir()
+    assert calls == [(str(home), 1000, 1000)]
+
+    # idempotent: an existing root-owned slot dir self-heals on the next ensure
+    calls.clear()
+    assert st.home_dir("lab") == home
+    assert calls == [(str(home), 1000, 1000)]
+
+    # uid/gid are overridable
+    calls.clear()
+    monkeypatch.setenv("COMPUTER_DESKTOP_UID", "1500")
+    monkeypatch.setenv("COMPUTER_DESKTOP_GID", "1501")
+    st.home_dir("lab")
+    assert calls == [(str(home), 1500, 1501)]
+
+
+def test_home_dir_no_chown_when_not_root(tmp_path: Path, monkeypatch):
+    st = Store(tmp_path)
+    calls = []
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    monkeypatch.setattr(os, "chown", lambda *a: calls.append(a))
+    assert st.home_dir("lab").is_dir()
+    assert calls == []
+
+
+def test_home_dir_survives_chown_failure(tmp_path: Path, monkeypatch):
+    st = Store(tmp_path)
+
+    def boom(*a):
+        raise PermissionError(1, "not permitted")
+
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(os, "chown", boom)
+    home = st.home_dir("lab")
+    assert home.is_dir()
 
 
 def test_fake_provider_flow(tmp_path: Path):

@@ -43,7 +43,7 @@ def build_ctx() -> dict:
             allow_private_urls=os.environ.get("COMPUTER_ALLOW_PRIVATE", "") == "1",
             shell=os.environ.get("COMPUTER_SHELL", "") == "1",
             idle_s=int(os.environ.get("COMPUTER_IDLE_S", "1800")),
-            image=os.environ.get("COMPUTER_IMAGE", "ghcr.io/tomlis20/hermes-computer:v0.1.0"),
+            image=os.environ.get("COMPUTER_IMAGE", "ghcr.io/tomlis20/hermes-computer:v0.1.2"),
             network=os.environ.get("COMPUTER_NETWORK", "hermes-computers"),
         ),
         "deny_cidrs": cidrs,

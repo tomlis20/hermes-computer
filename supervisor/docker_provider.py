@@ -18,7 +18,7 @@ from store import Computer, Store
 class DockerProvider:
     def __init__(self, store: Store) -> None:
         self.store = store
-        self.image = os.environ.get("COMPUTER_IMAGE", "ghcr.io/tomlis20/hermes-computer:v0.1.0")
+        self.image = os.environ.get("COMPUTER_IMAGE", "ghcr.io/tomlis20/hermes-computer:v0.1.2")
         self.network = os.environ.get("COMPUTER_NETWORK", "hermes-computers")
         self.prefix = os.environ.get("COMPUTER_CONTAINER_PREFIX", "hermes-computer-")
         # docker.sock bind mounts are host paths

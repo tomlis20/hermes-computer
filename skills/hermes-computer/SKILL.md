@@ -1,7 +1,7 @@
 ---
 name: hermes-computer
 description: Use when a site needs a real login and has no API.
-version: 0.1.0
+version: 0.1.2
 author: Tomasz (tomlis20), Hermes Agent
 license: MIT
 platforms: [linux, macos, windows]

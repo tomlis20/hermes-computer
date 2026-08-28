@@ -7,7 +7,7 @@
 
 services:
   supervisor:
-    image: ghcr.io/tomlis20/hermes-computer-supervisor:v0.1.0
+    image: ghcr.io/tomlis20/hermes-computer-supervisor:v0.1.2
     container_name: hermes-computer-supervisor
     restart: unless-stopped
     ports:
@@ -19,7 +19,7 @@ services:
       COMPUTER_SUPERVISOR_TOKEN: ${COMPUTER_SUPERVISOR_TOKEN}
       COMPUTER_NETWORK: hermes-computers
       COMPUTER_DATA_DIR: /var/lib/hermes-computer
-      COMPUTER_IMAGE: ${COMPUTER_IMAGE:-ghcr.io/tomlis20/hermes-computer:v0.1.0}
+      COMPUTER_IMAGE: ${COMPUTER_IMAGE:-ghcr.io/tomlis20/hermes-computer:v0.1.2}
       COMPUTER_BIND_HOST: "0.0.0.0"
       COMPUTER_PUBLIC_BASE: http://127.0.0.1:9376
       COMPUTER_NETWORK_CIDR: ${COMPUTER_NETWORK_CIDR:-}

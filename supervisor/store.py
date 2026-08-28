@@ -98,9 +98,32 @@ class Store:
             rec.last_rpc_at = time.time()
             self._write(rec)
 
+    def _desktop_ids(self) -> tuple[int, int]:
+        def one(env: str) -> int:
+            try:
+                return int(os.environ.get(env, "1000"))
+            except ValueError:
+                return 1000
+
+        return one("COMPUTER_DESKTOP_UID"), one("COMPUTER_DESKTOP_GID")
+
     def home_dir(self, name: str) -> Path:
         p = self.root / "homes" / name
         p.mkdir(parents=True, exist_ok=True)
+        # The supervisor runs as root, so the dir above lands root:root. The desktop
+        # container runs as uid 1000 (image/Dockerfile: useradd -m -u 1000 agent) and
+        # bind-mounts this at /home/agent/chrome -- left root-owned, Chromium cannot
+        # create SingletonLock and the container dies on the first spawn of a new slot.
+        # Run on every call, not just on creation, so root-owned dirs self-heal.
+        # Only the dir itself: profiles run to 100MB+ and this is on the ensure hot
+        # path, so a slot with root-owned *contents* from a partial run still needs a
+        # manual recursive chown.
+        if os.geteuid() == 0:
+            uid, gid = self._desktop_ids()
+            try:
+                os.chown(p, uid, gid)
+            except OSError:
+                pass
         return p
 
     def events_path(self, name: str) -> Path:
